@@ -1,0 +1,9 @@
+streamlit
+librosa
+moviepy
+mediapipe
+openai-whisper
+google-generativeai
+opencv-python-headless
+soundfile
+numpy
