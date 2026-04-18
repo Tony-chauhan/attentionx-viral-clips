@@ -8,3 +8,4 @@ opencv-python-headless
 soundfile
 numpy
 yt-dlp
+Pillow

@@ -1,9 +1,10 @@
 import cv2
 import mediapipe as mp
 from moviepy.video.io.VideoFileClip import VideoFileClip
-from moviepy.video.VideoClip import VideoClip, ColorClip, TextClip
+from moviepy.video.VideoClip import VideoClip, ImageClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 from moviepy.video.tools.subtitles import SubtitlesClip
+from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import tempfile
 import os
@@ -99,28 +100,75 @@ def process_video(video_path, start_time, end_time, hook_text, transcript_text="
     cropped_clip.fps = clip.fps
     cropped_clip = cropped_clip.set_audio(clip.audio)
     
-    # 2. Add Overlay Hooks (Text)
-    # Background for hook
-    hook_bg = ColorClip(size=(target_W, int(target_H * 0.15)), color=(138, 43, 226)) # Purple
-    hook_bg = hook_bg.set_opacity(0.8).set_duration(clip.duration).set_pos(("center", int(target_H * 0.05)))
-    
-    # Hook Text
+    # 2. Add Overlay Hooks (PIL ImageClip)
+    # We use PIL to avoid ImageMagick TextClip crashes
     try:
-        hook_text_clip = TextClip(
-            hook_text, 
-            fontsize=50, 
-            color='white', 
-            font='Arial-Bold', 
-            method='caption', 
-            size=(target_W*0.9, None), # Wrap to 90%
-            align='center'
-        )
-        hook_text_clip = hook_text_clip.set_duration(clip.duration).set_pos(("center", int(target_H * 0.08)))
+        # Create a blank transparent image for text
+        # Make the box 90% of screen width, height auto-scales with text
+        pad_x, pad_y = 20, 15
+        font_size = int(target_W * 0.08)
+        font = ImageFont.load_default()
+        
+        # Calculate raw text size to shape our background box
+        # We handle text wrapping by splitting into chunks if necessary
+        words = hook_text.split()
+        lines = []
+        current_line = []
+        dummy_img = Image.new('RGBA', (1,1))
+        dummy_draw = ImageDraw.Draw(dummy_img)
+        max_line_pixels = target_W * 0.8
+        
+        for w in words:
+            test_line = " ".join(current_line + [w])
+            # Use textbbox if available, otherwise fallback
+            if hasattr(dummy_draw, 'textbbox'):
+                bbox = dummy_draw.textbbox((0, 0), test_line, font=font)
+                width = bbox[2] - bbox[0]
+            else:
+                width = dummy_draw.textsize(test_line, font=font)[0]
+                
+            if width <= max_line_pixels:
+                current_line.append(w)
+            else:
+                if current_line: lines.append(" ".join(current_line))
+                current_line = [w]
+        if current_line: lines.append(" ".join(current_line))
+        
+        # Calculate Box Size
+        line_height = font_size + 10
+        box_h = len(lines) * line_height + (pad_y * 2)
+        box_w = int(target_W * 0.9)
+        
+        # Create PIL Canvas
+        img = Image.new('RGBA', (box_w, box_h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        # Draw Purple Rounded Rectangle
+        draw.rounded_rectangle([(0, 0), (box_w, box_h)], radius=20, fill=(138, 43, 226, 230))
+        
+        # Draw Text
+        y_cursor = pad_y
+        for line in lines:
+            if hasattr(draw, 'textbbox'):
+                bbox = draw.textbbox((0, 0), line, font=font)
+                lw = bbox[2] - bbox[0]
+            else:
+                lw = draw.textsize(line, font=font)[0]
+                
+            x_cursor = (box_w - lw) // 2
+            draw.text((x_cursor, y_cursor), line, font=font, fill="white")
+            y_cursor += line_height
+            
+        # Save temp and load as ImageClip
+        temp_img_path = tempfile.mktemp(suffix=".png")
+        img.save(temp_img_path, format="PNG")
+        
+        hook_clip = ImageClip(temp_img_path).set_duration(clip.duration).set_pos(("center", int(target_H * 0.08)))
         
         # Assemble
-        final = CompositeVideoClip([cropped_clip, hook_bg, hook_text_clip])
+        final = CompositeVideoClip([cropped_clip, hook_clip])
     except Exception as e:
-        print(f"TextClip error (happens without ImageMagick). Ignoring text overlay: {e}")
+        print(f"PIL Hook Error: {e}")
         final = cropped_clip
         
     output_path = tempfile.mktemp(suffix=".mp4")
