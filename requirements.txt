@@ -1,6 +1,6 @@
 streamlit
 librosa
-moviepy
+moviepy<2.0.0
 mediapipe
 openai-whisper
 google-generativeai
