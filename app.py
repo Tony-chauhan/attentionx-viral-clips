@@ -3,7 +3,8 @@ import os
 import time
 import tempfile
 import sys
-
+import subprocess
+import yt_dlp
 # Optional: if you run into module load errors during development
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -33,12 +34,31 @@ st.title("AttentionX 🎥⚡️")
 st.markdown("### Automated Content Repurposing Engine")
 st.markdown("Upload a 16:9 long-form video. We'll automatically find the best moment, smart-crop to 9:16 keeping the speaker centered, and burn an AI viral hook!")
 
+# ------------- Helpers ------------- #
+def download_youtube_video(url, output_path):
+    ydl_opts = {
+        'format': 'best[ext=mp4]/best', # Grab best single mp4 file (avoids relying on ffmpeg for merging initially for speed)
+        'outtmpl': output_path,
+        'quiet': True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+
 # ------------- Inputs ------------- #
 demo_mode = st.checkbox("🚀 Use Demo Mode (Instant Processing / Safety Net)", value=False)
-uploaded_file = st.file_uploader("Upload Long-Form Video (.mp4)", type=["mp4"])
+
+input_method = st.radio("Choose Input Method", ("Upload Video", "YouTube URL"), horizontal=True)
+
+uploaded_file = None
+youtube_url = ""
+
+if input_method == "Upload Video":
+    uploaded_file = st.file_uploader("Upload Long-Form Video (.mp4)", type=["mp4"])
+else:
+    youtube_url = st.text_input("Enter YouTube Video URL:")
 
 # ------------- Processing Logic ------------- #
-if uploaded_file is not None:
+if uploaded_file is not None or youtube_url:
     if st.button("Generate Shorts 🚀"):
         if demo_mode:
             st.warning("Running in Demo Mode: Serving pre-processed sample data.")
@@ -51,7 +71,6 @@ if uploaded_file is not None:
                 
             demo_video_path = os.path.join("sample_data", "output.mp4")
             
-            # Use placeholder if it doesn't exist
             if not os.path.exists(demo_video_path):
                 st.error("No sample data found. Please run a real file first and save the output in sample_data/output.mp4!")
             else:
@@ -75,10 +94,18 @@ if uploaded_file is not None:
 
         else:
             # REAL PROCESSING
-            # Save uploaded clip to temp
             temp_in = tempfile.mktemp(suffix=".mp4")
-            with open(temp_in, "wb") as f:
-                f.write(uploaded_file.read())
+            
+            try:
+                if input_method == "Upload Video":
+                    with open(temp_in, "wb") as f:
+                        f.write(uploaded_file.read())
+                else:
+                    st.info("⬇️ Downloading video from YouTube...")
+                    download_youtube_video(youtube_url, temp_in)
+            except Exception as e:
+                st.error(f"Failed to load video: {e}")
+                st.stop()
                 
             st.info("Starting AI Pipeline. This might take a minute on CPU.")
             
@@ -127,7 +154,7 @@ if uploaded_file is not None:
             if os.path.exists(temp_in):
                 os.remove(temp_in)
 else:
-    st.info("Please upload an MP4 file to begin. Max size for live demo ~15MB recommended.")
+    st.info("Please upload an MP4 file or paste a YouTube URL to begin. Max size for live demo ~15MB equivalent recommended.")
     
 st.markdown("---")
 st.markdown("Built by Hackathon Winning Squad: Heena, Dharmender, Rishita. Submission: 18th April 2026")

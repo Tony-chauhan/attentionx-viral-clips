@@ -7,3 +7,4 @@ google-generativeai
 opencv-python-headless
 soundfile
 numpy
+yt-dlp
