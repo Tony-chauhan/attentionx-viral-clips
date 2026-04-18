@@ -10,17 +10,18 @@ Transform boring 16:9 long-form videos into viral 9:16 shorts. AttentionX combin
 - **Heena Chauhan** (Frontend Vision & UI/UX Lead)
 ## 🚀 Impact & Innovation
 - **Audio-Semantic Peak Detection**: Uses `Librosa` combined with `Whisper` transcripts to find high-energy, emotionally profound moments.
-- **Dynamic Face-Centered Cropping**: Uses `MediaPipe` Face Detection with an Exponential Moving Average (EMA) algorithm to smoothly pan and keep the subject perfectly in extreme 9:16 crops.
-- **GenAI Hooks**: `Gemini 1.5 Flash` reads the peak's transcript to generate a click-optimized headline.
+- **Dynamic Face-Centered Cropping**: Leverages `OpenCV` Native Haar Cascades with an Exponential Moving Average (EMA) algorithm to cleanly track and smoothly lock the subject perfectly in extreme 9:16 crops (100% bug-free native tracking).
+- **GenAI Overlay Hooks**: `Gemini 1.5 Flash` reads the peak's transcript to generate a highly engaging headline, which perfectly drops into the frame via a pristine zero-dependency Pillow architecture.
 
 ## 🔗 Links
-- [LIVE DEMO APP (Streamlit)](#) <!-- Add Hosted Link -->
-- [WATCH DEMO VIDEO (YouTube)](#) <!-- CRITICAL: Add link before 8pm -->
+- [WATCH DEMO VIDEO (YouTube Shorts)](https://youtube.com/shorts/6vx8bbbW0bw?si=ZaRE7T3Oprxe3vaz) 🚀
 
+[![AttentionX Live Demo](https://img.youtube.com/vi/6vx8bbbW0bw/maxresdefault.jpg)](https://youtube.com/shorts/6vx8bbbW0bw?si=ZaRE7T3Oprxe3vaz)
 ## ⚙️ Architecture & Tech Stack
 - Frontend: `Streamlit`
 - Video Processing: `MoviePy`
-- CV/Tracking: `mediaPipe`
+- CV/Tracking: `OpenCV (Native Haar Cascades)`
+- Text Rendering: `Pillow (Zero-Dependency Image Hooks)`
 - Audio/Transcripts: `Librosa`, `Whisper (tiny)`
 - LLM: `Google Gemini 1.5 Flash`
 
