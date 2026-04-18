@@ -4,7 +4,7 @@ import whisper
 import google.generativeai as genai
 import os
 import tempfile
-import moviepy.editor as mp
+from moviepy.video.io.VideoFileClip import VideoFileClip as mp_VideoFileClip
 
 def get_peak_window(audio_path, window_duration=15):
     """Finds the 15-second window with the highest RMS average energy."""
@@ -54,7 +54,7 @@ def extract_and_analyze(video_path, window_duration=15):
     # 1. Extract audio
     audio_path = tempfile.mktemp(suffix=".wav")
     try:
-        video = mp.VideoFileClip(video_path)
+        video = mp_VideoFileClip(video_path)
         if video.audio is None:
             raise ValueError("No audio found in video")
         video.audio.write_audiofile(audio_path, logger=None)

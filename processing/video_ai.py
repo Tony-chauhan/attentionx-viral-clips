@@ -1,6 +1,8 @@
 import cv2
 import mediapipe as mp
-import moviepy.editor as mp_edit
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.video.VideoClip import VideoClip, ColorClip, TextClip
+from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 from moviepy.video.tools.subtitles import SubtitlesClip
 import numpy as np
 import tempfile
@@ -12,7 +14,7 @@ def get_smoothed_face_x(video_path, start_time, end_time, alpha=0.1):
     and applies Exponential Moving Average (EMA) smoothing to prevent jitter.
     """
     mp_face = mp.solutions.face_detection.FaceDetection(model_selection=0, min_detection_confidence=0.4)
-    clip = mp_edit.VideoFileClip(video_path).subclip(start_time, end_time)
+    clip = VideoFileClip(video_path).subclip(start_time, end_time)
     
     x_positions = []
     
@@ -51,7 +53,7 @@ def process_video(video_path, start_time, end_time, hook_text, transcript_text="
     # 1. Get smoothed face track
     smoothed_x, fps = get_smoothed_face_x(video_path, start_time, end_time)
     
-    clip = mp_edit.VideoFileClip(video_path).subclip(start_time, end_time)
+    clip = VideoFileClip(video_path).subclip(start_time, end_time)
     
     W, H = clip.size
     
@@ -93,18 +95,18 @@ def process_video(video_path, start_time, end_time, hook_text, transcript_text="
         cropped = frame[y1:y2, x1:x2]
         return cropped
 
-    cropped_clip = mp_edit.VideoClip(add_margins_and_crop, duration=clip.duration)
+    cropped_clip = VideoClip(add_margins_and_crop, duration=clip.duration)
     cropped_clip.fps = clip.fps
     cropped_clip = cropped_clip.set_audio(clip.audio)
     
     # 2. Add Overlay Hooks (Text)
     # Background for hook
-    hook_bg = mp_edit.ColorClip(size=(target_W, int(target_H * 0.15)), color=(138, 43, 226)) # Purple
+    hook_bg = ColorClip(size=(target_W, int(target_H * 0.15)), color=(138, 43, 226)) # Purple
     hook_bg = hook_bg.set_opacity(0.8).set_duration(clip.duration).set_pos(("center", int(target_H * 0.05)))
     
     # Hook Text
     try:
-        hook_text_clip = mp_edit.TextClip(
+        hook_text_clip = TextClip(
             hook_text, 
             fontsize=50, 
             color='white', 
@@ -116,7 +118,7 @@ def process_video(video_path, start_time, end_time, hook_text, transcript_text="
         hook_text_clip = hook_text_clip.set_duration(clip.duration).set_pos(("center", int(target_H * 0.08)))
         
         # Assemble
-        final = mp_edit.CompositeVideoClip([cropped_clip, hook_bg, hook_text_clip])
+        final = CompositeVideoClip([cropped_clip, hook_bg, hook_text_clip])
     except Exception as e:
         print(f"TextClip error (happens without ImageMagick). Ignoring text overlay: {e}")
         final = cropped_clip
