@@ -58,6 +58,7 @@ def extract_and_analyze(video_path, window_duration=15):
         if video.audio is None:
             raise ValueError("No audio found in video")
         video.audio.write_audiofile(audio_path, logger=None)
+        video.close()
     except Exception as e:
         print(f"Audio extraction error: {e}")
         return {"start_time": 0.0, "end_time": window_duration, "transcript": "", "hook": "VIRAL AI CLIP"}

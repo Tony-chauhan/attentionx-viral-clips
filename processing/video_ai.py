@@ -1,5 +1,4 @@
 import cv2
-import mediapipe as mp
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.video.VideoClip import VideoClip, ImageClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
@@ -11,31 +10,43 @@ import os
 
 def get_smoothed_face_x(video_path, start_time, end_time, alpha=0.1):
     """
-    Extracts frames, uses MediaPipe to find the face X-coordinate,
+    Extracts frames, uses robust OpenCV cascades to find the face X-coordinate,
     and applies Exponential Moving Average (EMA) smoothing to prevent jitter.
     """
-    mp_face = mp.solutions.face_detection.FaceDetection(model_selection=0, min_detection_confidence=0.4)
-    clip = VideoFileClip(video_path).subclip(start_time, end_time)
+    # Use built-in OpenCV Haar Cascade to avoid MediaPipe v0.10+ deprecation bugs
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    
+    # Keep reference to properly close and prevent Windows WinError 32 PermissionError
+    video_clip = VideoFileClip(video_path)
+    clip = video_clip.subclip(start_time, end_time)
     
     x_positions = []
     
     # Iterate through frames
     for frame in clip.iter_frames():
-        # MediaPipe needs RGB
-        results = mp_face.process(frame)
-        if results.detections:
-            # Take the first face
-            bbox = results.detections[0].location_data.relative_bounding_box
-            # Middle of the bounding box
-            x_center = bbox.xmin + (bbox.width / 2)
-            # Clamp between 0 and 1
-            x_positions.append(max(0.0, min(1.0, x_center)))
+        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        
+        if len(faces) > 0:
+            # Take largest face if multiple
+            faces = sorted(faces, key=lambda x: x[2]*x[3], reverse=True)
+            x, y, w, h = faces[0]
+            
+            # Center of face
+            x_center = x + (w / 2)
+            # Normalize to 0.0 - 1.0 based on frame width
+            x_relative = x_center / frame.shape[1]
+            x_positions.append(max(0.0, min(1.0, x_relative)))
         else:
             # Fallback to previous position or center
             x_positions.append(x_positions[-1] if x_positions else 0.5)
-            
-    mp_face.close()
 
+    fps = clip.fps
+    
+    # CLOSE to release file lock on Windows
+    clip.close()
+    video_clip.close()
+    
     if not x_positions:
         return [0.5]
 
@@ -54,7 +65,8 @@ def process_video(video_path, start_time, end_time, hook_text, transcript_text="
     # 1. Get smoothed face track
     smoothed_x, fps = get_smoothed_face_x(video_path, start_time, end_time)
     
-    clip = VideoFileClip(video_path).subclip(start_time, end_time)
+    master_video_clip = VideoFileClip(video_path)
+    clip = master_video_clip.subclip(start_time, end_time)
     
     W, H = clip.size
     
@@ -181,5 +193,12 @@ def process_video(video_path, start_time, end_time, hook_text, transcript_text="
         remove_temp=True,
         logger=None # suppress verbose output for streamlit
     )
+    
+    # Close clips to release Windows file locks natively!
+    master_video_clip.close()
+    clip.close()
+    cropped_clip.close()
+    if 'final' in locals():
+        final.close()
     
     return output_path
